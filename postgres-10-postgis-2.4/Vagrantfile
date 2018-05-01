@@ -19,6 +19,8 @@ Vagrant.configure("2") do |config|
   # `vagrant box outdated`. This is not recommended.
   # config.vm.box_check_update = false
   config.vm.hostname = "postgres-10-postgis-24"
+  config.ssh.forward_agent = true
+  config.ssh.forward_x11 = true
 
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
@@ -87,6 +89,7 @@ Vagrant.configure("2") do |config|
     sudo -u postgres psql -d sogis -c 'GRANT SELECT ON spatial_ref_sys TO dmluser;'
     sudo -u postgres psql -d sogis -c 'GRANT SELECT ON geography_columns TO dmluser;'
     sudo -u postgres psql -d sogis -c 'GRANT SELECT ON raster_columns TO dmluser;'
+    sudo -u postgres psql -d sogis -c "ALTER DATABASE sogis SET postgis.gdal_enabled_drivers TO 'GTiff PNG JPEG';"
     systemctl stop postgresql
     rm /etc/postgresql/10/main/postgresql.conf
     rm /etc/postgresql/10/main/pg_hba.conf
@@ -98,6 +101,10 @@ Vagrant.configure("2") do |config|
     add-apt-repository --yes ppa:ubuntugis/ubuntugis-unstable
     apt-key adv --keyserver hkp://keyserver.ubuntu.com:80/ --recv-key 073D307A618E5811
     apt-get update
+    apt-get upgrade
     apt-get install -y gdal-bin
+    apt-get install -y xauth zip
+    apt-get install -y ifupdown
+    apt-get install -y fonts-liberation
     SHELL
 end
