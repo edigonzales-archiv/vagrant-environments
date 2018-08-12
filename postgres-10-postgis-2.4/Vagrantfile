@@ -12,7 +12,7 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
-  config.vm.box = "bento/ubuntu-16.04"
+  config.vm.box = "bento/ubuntu-18.04"
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
@@ -73,16 +73,32 @@ Vagrant.configure("2") do |config|
   # documentation for more information about their specific syntax and use.
   config.vm.provision "shell", inline: <<-SHELL
     locale-gen de_CH.utf8
-    echo 'deb http://apt.postgresql.org/pub/repos/apt/ xenial-pgdg main' >> /etc/apt/sources.list.d/pgdg.list
-    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+    echo "Europe/Zurich" | tee /etc/timezone
+    dpkg-reconfigure --frontend noninteractive tzdata
+    echo 'deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main' >> /etc/apt/sources.list.d/pgdg.list
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -    
     apt-get update
     apt-get install -y postgresql-10 
     apt-get install -y postgresql-client-10
     apt-get install -y postgresql-10-postgis-2.4
+    apt-get install -y postgresql-10-postgis-2.4-scripts
     apt-get install -y postgis
+    sudo -u postgres psql -d postgres -c "UPDATE pg_database SET datistemplate = FALSE WHERE datname = 'template1';"
+    sudo -u postgres psql -d postgres -c "DROP DATABASE template1;"
+    sudo -u postgres psql -d postgres -c "CREATE DATABASE template1 WITH TEMPLATE = template0 ENCODING='UNICODE' LC_COLLATE='en_US.UTF8' LC_CTYPE='en_US.UTF8';"
+    sudo -u postgres psql -d postgres -c "UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'template1';"
+    sudo -u postgres psql -d postgres -c "UPDATE pg_database SET datallowconn = FALSE WHERE datname = 'template1';"
     sudo -u postgres psql -d postgres -c "CREATE ROLE ddluser LOGIN PASSWORD 'ddluser';"
     sudo -u postgres psql -d postgres -c "CREATE ROLE dmluser LOGIN PASSWORD 'dmluser';"
-    sudo -u postgres psql -d postgres -c 'CREATE DATABASE sogis OWNER ddluser;'
+    sudo -u postgres psql -d postgres -c "CREATE DATABASE pub WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'en_US.UTF-8' LC_CTYPE = 'en_US.UTF-8' OWNER ddluser;"
+    sudo -u postgres psql -d pub -c 'CREATE EXTENSION postgis;'
+    sudo -u postgres psql -d pub -c 'CREATE EXTENSION "uuid-ossp";'
+    sudo -u postgres psql -d pub -c 'GRANT SELECT ON geometry_columns TO dmluser;'
+    sudo -u postgres psql -d pub -c 'GRANT SELECT ON spatial_ref_sys TO dmluser;'
+    sudo -u postgres psql -d pub -c 'GRANT SELECT ON geography_columns TO dmluser;'
+    sudo -u postgres psql -d pub -c 'GRANT SELECT ON raster_columns TO dmluser;'
+    sudo -u postgres psql -d pub -c "ALTER DATABASE pub SET postgis.gdal_enabled_drivers TO 'GTiff PNG JPEG';"
+    sudo -u postgres psql -d postgres -c "CREATE DATABASE sogis WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'en_US.UTF-8' LC_CTYPE = 'en_US.UTF-8' OWNER ddluser;"
     sudo -u postgres psql -d sogis -c 'CREATE EXTENSION postgis;'
     sudo -u postgres psql -d sogis -c 'CREATE EXTENSION "uuid-ossp";'
     sudo -u postgres psql -d sogis -c 'GRANT SELECT ON geometry_columns TO dmluser;'
